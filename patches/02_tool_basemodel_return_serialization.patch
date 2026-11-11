@@ -1,0 +1,71 @@
+diff --git a/src/openminion/modules/tool/runtime/registry_toolspec.py b/src/openminion/modules/tool/runtime/registry_toolspec.py
+index 2e32634..ce134e8 100644
+--- a/src/openminion/modules/tool/runtime/registry_toolspec.py
++++ b/src/openminion/modules/tool/runtime/registry_toolspec.py
+@@ -179,6 +179,16 @@ def _build_tool_runtime_context(
+     return runtime_ctx
+ 
+ 
++def _json_safe_tool_value(value: Any) -> Any:
++    if hasattr(value, "model_dump"):
++        return value.model_dump(mode="json")
++    if isinstance(value, Mapping):
++        return {str(key): _json_safe_tool_value(val) for key, val in value.items()}
++    if isinstance(value, (list, tuple)):
++        return [_json_safe_tool_value(item) for item in value]
++    return value
++
++
+ def _tool_result_from_payload(*, tool_name: str, payload: Any) -> ToolExecutionResult:
+     payload_dict = (
+         dict(payload)
+@@ -223,7 +233,7 @@ def _tool_result_from_payload(*, tool_name: str, payload: Any) -> ToolExecutionR
+             if key not in {"ok", "verified", "content", "error", "source"}
+         }
+     )
+-    data = strip_tool_result_noise(data)
++    data = _json_safe_tool_value(strip_tool_result_noise(data))
+     if isinstance(raw_error, Mapping):
+         data["error_code"] = str(raw_error.get("code", "") or "EXEC_ERROR")
+         if isinstance(raw_error.get("details"), Mapping):
+diff --git a/tests/modules/tool/test_registry_toolspec_runtime.py b/tests/modules/tool/test_registry_toolspec_runtime.py
+index 46f5e84..999e045 100644
+--- a/tests/modules/tool/test_registry_toolspec_runtime.py
++++ b/tests/modules/tool/test_registry_toolspec_runtime.py
+@@ -471,3 +471,36 @@ def test_execute_tool_spec_call_propagates_artifactctl_construction_failure(
+             arguments={"key": "missing"},
+             context=_context(tmp_path, {}),
+         )
++
++
++def test_tool_result_from_payload_serializes_basemodel_values() -> None:
++    from openminion.modules.brain.loop.tools.messages import (
++        action_result_to_tool_message,
++    )
++    from openminion.modules.brain.schemas import ActionResult
++    from openminion.modules.tool.registry import ToolExecutionBatch
++    from pydantic import BaseModel
++
++    class _ScanReport(BaseModel):
++        status: str
++        count: int
++
++    result = registry_toolspec._tool_result_from_payload(
++        tool_name="scan_diff",
++        payload=_ScanReport(status="error", count=3),
++    )
++    assert result.ok is True
++    assert result.data == {"result": {"status": "error", "count": 3}}
++    assert '"count": 3' in result.content
++    assert ToolExecutionBatch(results=[result]).to_metadata_payload()
++    msg = action_result_to_tool_message(
++        "call-1",
++        "scan_diff",
++        ActionResult(
++            command_id="cmd-1",
++            status="success",
++            summary=result.content,
++            outputs=result.data,
++        ),
++    )
++    assert '"count": 3' in msg.content

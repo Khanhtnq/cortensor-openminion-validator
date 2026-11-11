@@ -1,0 +1,128 @@
+diff --git a/src/openminion/modules/llm/providers/cortensor/adapter.py b/src/openminion/modules/llm/providers/cortensor/adapter.py
+index 938b3f6..5144745 100644
+--- a/src/openminion/modules/llm/providers/cortensor/adapter.py
++++ b/src/openminion/modules/llm/providers/cortensor/adapter.py
+@@ -275,6 +275,7 @@ class CortensorProvider:
+             ),
+             trace_metadata=request.metadata,
+             env=config.get("__env__"),
++            http_client=http_client_for_config(self._http_client, config),
+             telemetryctl=config.get("telemetryctl"),
+         )
+ 
+diff --git a/src/openminion/services/health/probes.py b/src/openminion/services/health/probes.py
+index 5f4b7e3..7a57404 100644
+--- a/src/openminion/services/health/probes.py
++++ b/src/openminion/services/health/probes.py
+@@ -164,12 +164,17 @@ def probe_provider_key(config: Any, provider_name: str) -> ProbeResult | None:
+ def probe_provider_session(config: Any, provider_name: str) -> ProbeResult | None:
+     if provider_name != "cortensor":
+         return None
++    from openminion.modules.llm.providers.cortensor.config import (
++        resolve_cortensor_runtime_config,
++    )
++
++    resolved_provider = resolve_cortensor_runtime_config(config)
+     if not _cortensor_completion_mode(
+-        api_mode=config.providers.cortensor.api_mode,
+-        base_url=config.providers.cortensor.base_url,
++        api_mode=resolved_provider.api_mode,
++        base_url=resolved_provider.base_url,
+     ):
+         return None
+-    session_ids = _resolve_cortensor_session_candidates(config)
++    session_ids = _resolve_cortensor_session_candidates(resolved_provider)
+     if not session_ids:
+         return ProbeResult(
+             id="provider.cortensor.session_id",
+@@ -315,14 +320,19 @@ def _resolve_key_source(config_key: str, env_name: str, default_env: str) -> str
+     return None
+ 
+ 
+-def _resolve_cortensor_session_candidates(config: Any) -> list[int]:
++def _resolve_cortensor_session_candidates(provider_or_config: Any) -> list[int]:
++    cortensor_cfg = getattr(
++        getattr(provider_or_config, "providers", None),
++        "cortensor",
++        provider_or_config,
++    )
+     seen: set[int] = set()
+     results: list[int] = []
+     for raw_value in [
+-        config.providers.cortensor.session_id,
+-        *list(config.providers.cortensor.session_ids),
+-        *list(config.providers.cortensor.dedicated_session_ids),
+-        *list(config.providers.cortensor.ephemeral_session_ids),
++        cortensor_cfg.session_id,
++        *list(cortensor_cfg.session_ids),
++        *list(cortensor_cfg.dedicated_session_ids),
++        *list(cortensor_cfg.ephemeral_session_ids),
+     ]:
+         try:
+             parsed = int(raw_value)
+@@ -339,4 +349,4 @@ def _cortensor_completion_mode(*, api_mode: str, base_url: str) -> bool:
+     mode = (api_mode or "").strip().lower()
+     if mode in {"cortensor_completion", "openai_chat"}:
+         return mode == "cortensor_completion"
+-    return base_url.strip().lower().endswith("/completions")
++    return base_url.strip().rstrip("/").lower().endswith("/completions")
+diff --git a/tests/test_health_doctor_probe_parity.py b/tests/test_health_doctor_probe_parity.py
+index e75af90..719dfd5 100644
+--- a/tests/test_health_doctor_probe_parity.py
++++ b/tests/test_health_doctor_probe_parity.py
+@@ -145,3 +145,55 @@ class HealthDoctorProbeParityTests(unittest.TestCase):
+ 
+ def _check_by_id(payload: dict) -> dict:
+     return {check["id"]: check for check in payload["checks"]}
++
++
++class CortensorDoctorEnvAndPoolParityTests(unittest.TestCase):
++    def test_probe_provider_session_honors_cortensor_env_overrides(self) -> None:
++        from openminion.services.health.probes import probe_provider_session
++
++        cfg = OpenMinionConfig()
++        cfg.providers.cortensor.session_id = 0
++        with patch.dict("os.environ", {"CORTENSOR_SESSION_ID": "42"}, clear=False):
++            router_probe = probe_provider_session(cfg, "cortensor")
++        self.assertIsNotNone(router_probe)
++        assert router_probe is not None
++        self.assertEqual(router_probe.status, "ok")
++
++        with patch.dict(
++            "os.environ",
++            {
++                "CORTENSOR_API_MODE": "openai_chat",
++                "CORTENSOR_API_URL": "https://api.cortensor.app/v1",
++            },
++            clear=False,
++        ):
++            portal_probe = probe_provider_session(cfg, "cortensor")
++        self.assertIsNone(portal_probe)
++
++    def test_cortensor_openai_chat_mode_forwards_pooled_http_client(self) -> None:
++        from openminion.modules.llm.schemas import LLMRequest, Message
++        from openminion.modules.llm.providers.cortensor.adapter import CortensorProvider
++
++        provider = CortensorProvider()
++        try:
++            req = LLMRequest(
++                provider="cortensor",
++                model="gpt-oss-20b",
++                messages=[Message(role="user", content="ping")],
++            )
++            with patch.object(
++                provider,
++                "_post_with_retries",
++                return_value={"choices": [{"message": {"content": "pong"}}]},
++            ) as post_mock:
++                provider._complete_via_openai_chat_mode(
++                    request=req,
++                    config={"http_connection_reuse_enabled": True},
++                    model="gpt-oss-20b",
++                    headers={},
++                    tool_call_strategy="hybrid",
++                    base_url="https://api.cortensor.app/v1",
++                )
++            self.assertIs(post_mock.call_args.kwargs.get("http_client"), provider._http_client)
++        finally:
++            provider.close()

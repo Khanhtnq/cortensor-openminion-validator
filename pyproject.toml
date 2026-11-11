@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cortensor-sentinel"
+version = "0.1.0"
+description = "Multi-agent PR, smart-contract & CODE_QUALITY.md triage coordinator and Cortensor Router/Portal diagnostic agent built on OpenMinion."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "openminion>=0.1.20",
+    "pydantic>=2.7",
+    "sophiagraph>=0.0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6.0",
+]
+
+[project.scripts]
+sentinel = "cortensor_sentinel.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

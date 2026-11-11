@@ -1,0 +1,47 @@
+diff --git a/src/openminion/modules/tool/runtime/registry_toolspec.py b/src/openminion/modules/tool/runtime/registry_toolspec.py
+index 2e32634..341ea03 100644
+--- a/src/openminion/modules/tool/runtime/registry_toolspec.py
++++ b/src/openminion/modules/tool/runtime/registry_toolspec.py
+@@ -96,7 +96,13 @@ def _validated_tool_arguments(
+             )
+         parsed = validation.structured_payload
+         if hasattr(parsed, "model_dump"):
+-            return parsed.model_dump(exclude_none=True)
++            dumped = parsed.model_dump()
++            fields_set = set(getattr(parsed, "model_fields_set", ()))
++            return {
++                key: value
++                for key, value in dumped.items()
++                if value is not None or key in fields_set
++            }
+         if isinstance(parsed, Mapping):
+             return dict(parsed)
+         return dict(arguments)
+diff --git a/tests/modules/tool/test_registry_toolspec_runtime.py b/tests/modules/tool/test_registry_toolspec_runtime.py
+index 46f5e84..50e651e 100644
+--- a/tests/modules/tool/test_registry_toolspec_runtime.py
++++ b/tests/modules/tool/test_registry_toolspec_runtime.py
+@@ -202,6 +202,23 @@ def test_execute_tool_spec_call_preserves_task_runtime_owners(tmp_path, monkeypa
+     assert result.data == {"task_manager": True, "scheduler": {"state": "ready"}}
+ 
+ 
++def test_validated_tool_arguments_preserves_explicit_none_field(tmp_path) -> None:
++    from openminion import tool
++
++    @tool
++    def fetch_logs(limit: int | None = 10, tag: str | None = None) -> dict[str, object]:
++        return {"limit": limit, "tag": tag}
++
++    validated = registry_toolspec._validated_tool_arguments(
++        tool_name="fetch_logs",
++        args_model=fetch_logs.tool_decl.args_model,
++        arguments={"limit": None},
++        context=_context(tmp_path, {}),
++    )
++    assert validated == {"limit": None}
++    assert fetch_logs.tool_decl.handler(validated) == {"limit": None, "tag": None}
++
++
+ def test_execute_tool_spec_call_runtime_env_allows_json_metadata_payload(
+     tmp_path, monkeypatch
+ ):

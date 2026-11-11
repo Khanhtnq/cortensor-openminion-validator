@@ -1,0 +1,53 @@
+diff --git a/src/openminion/api/handoff.py b/src/openminion/api/handoff.py
+index 4557321..e2dcac6 100644
+--- a/src/openminion/api/handoff.py
++++ b/src/openminion/api/handoff.py
+@@ -167,7 +167,13 @@ def build_delegate_tool(handoff: Handoff) -> ToolDecl:
+ 
+     def _handler_fn(message: str) -> dict[str, Any]:
+         result = handoff.target.run(message)
+-        data = {"output": result.output}
++        raw_output = result.output
++        output_value = (
++            raw_output.model_dump(mode="json")
++            if hasattr(raw_output, "model_dump")
++            else raw_output
++        )
++        data = {"output": output_value}
+         if result.run_id:
+             data["run_id"] = result.run_id
+         if result.run_state:
+diff --git a/tests/api/test_handoff.py b/tests/api/test_handoff.py
+index d28f20b..9e59ed0 100644
+--- a/tests/api/test_handoff.py
++++ b/tests/api/test_handoff.py
+@@ -253,6 +253,29 @@ def test_concurrent_handoff_runs_do_not_collide() -> None:
+     assert "transfer_to_child" not in runtime.tools.list()
+ 
+ 
++def test_build_delegate_tool_serializes_basemodel_target_output() -> None:
++    from openminion.modules.tool.registry import ToolExecutionBatch
++    from openminion.modules.tool.runtime.registry_toolspec import (
++        _tool_result_from_payload,
++    )
++    from pydantic import BaseModel
++
++    class _Verdict(BaseModel):
++        severity: str
++        summary: str
++
++    specialist = Agent(
++        runtime=_FakeRuntime('{"severity": "high", "summary": "reentrancy"}'),
++        name="specialist",
++        output_type=_Verdict,
++    )
++    decl = build_delegate_tool(Handoff(target=specialist))
++    payload = decl.handler(decl.args_model(message="audit"))
++    assert payload["data"]["output"] == {"severity": "high", "summary": "reentrancy"}
++    result = _tool_result_from_payload(tool_name=decl.name, payload=payload)
++    assert ToolExecutionBatch(results=[result]).to_metadata_payload()
++
++
+ def test_agent_handoffs_param_compiles_to_family_spec() -> None:
+     runtime = _FakeRuntime()
+     agent_b = Agent(runtime=runtime, name="b")

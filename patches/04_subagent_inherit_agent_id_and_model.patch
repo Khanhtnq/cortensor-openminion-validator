@@ -1,0 +1,41 @@
+diff --git a/src/openminion/api/handoff.py b/src/openminion/api/handoff.py
+index 4557321..96e8675 100644
+--- a/src/openminion/api/handoff.py
++++ b/src/openminion/api/handoff.py
+@@ -294,7 +294,8 @@ def subagent(
+         instructions=instructions,
+         output_type=output_type,
+         runtime=runtime,
+-        model=model,
++        agent_id=parent.agent_id,
++        model=parent.model if model is None else model,
+         tools=tools,
+         name=name,
+         delegated_memory_request=memory,
+diff --git a/tests/api/test_handoff.py b/tests/api/test_handoff.py
+index d28f20b..ee723b6 100644
+--- a/tests/api/test_handoff.py
++++ b/tests/api/test_handoff.py
+@@ -522,6 +522,22 @@ def test_subagent_issues_and_revokes_fresh_memory_grant_per_run(tmp_path) -> Non
+         policy.close()
+ 
+ 
++def test_subagent_inherits_parent_agent_id_and_default_model() -> None:
++    runtime = _FakeRuntime()
++    parent = Agent(
++        runtime=runtime,
++        name="parent",
++        agent_id="cortensor-reviewer",
++        model="qwen2.5:7b-instruct",
++    )
++    child = subagent(parent, name="child", instructions="audit")
++    assert child.agent_id == "cortensor-reviewer"
++    assert child.model == "qwen2.5:7b-instruct"
++    child.run("check")
++    assert runtime.last_payload["agent_id"] == "cortensor-reviewer"
++    assert runtime.last_payload["override_model"] == 'qwen2.5:7b-instruct'
++
++
+ def test_delegated_memory_is_not_granted_before_tool_registry_validation(
+     tmp_path,
+ ) -> None:
