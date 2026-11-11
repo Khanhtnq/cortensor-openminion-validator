@@ -13,7 +13,7 @@ index 4557321..96e8675 100644
          name=name,
          delegated_memory_request=memory,
 diff --git a/tests/api/test_handoff.py b/tests/api/test_handoff.py
-index d28f20b..ee723b6 100644
+index d28f20b..144cbe0 100644
 --- a/tests/api/test_handoff.py
 +++ b/tests/api/test_handoff.py
 @@ -522,6 +522,22 @@ def test_subagent_issues_and_revokes_fresh_memory_grant_per_run(tmp_path) -> Non
@@ -33,7 +33,7 @@ index d28f20b..ee723b6 100644
 +    assert child.model == "qwen2.5:7b-instruct"
 +    child.run("check")
 +    assert runtime.last_payload["agent_id"] == "cortensor-reviewer"
-+    assert runtime.last_payload["override_model"] == 'qwen2.5:7b-instruct'
++    assert runtime.last_payload["override_model"] == "qwen2.5:7b-instruct"
 +
 +
  def test_delegated_memory_is_not_granted_before_tool_registry_validation(

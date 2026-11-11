@@ -1,8 +1,8 @@
 diff --git a/src/openminion/api/agent.py b/src/openminion/api/agent.py
-index 0b895d8..d153c70 100644
+index 0b895d8..6621e54 100644
 --- a/src/openminion/api/agent.py
 +++ b/src/openminion/api/agent.py
-@@ -259,22 +259,22 @@ class Agent(Generic[InputT, OutputT]):
+@@ -259,22 +259,20 @@ class Agent(Generic[InputT, OutputT]):
              try:
                  return cast(OutputT, self.output_type.model_validate_json(text))
              except ValidationError as exc:
@@ -10,8 +10,6 @@ index 0b895d8..d153c70 100644
 -                # balanced object before failing validation.
 -                stripped = _extract_json_object(text)
 -                if stripped:
-+                # Some providers wrap JSON answers in prose or emit an inline
-+                # status object first; scan balanced JSON objects before failing.
 +                last_exc: ValidationError = exc
 +                for candidate in _iter_json_objects(text):
                      try:
@@ -35,7 +33,7 @@ index 0b895d8..d153c70 100644
          try:
              return self.output_type(text)  # type: ignore[call-arg]
          except Exception as exc:  # noqa: BLE001
-@@ -439,17 +439,32 @@ class Agent(Generic[InputT, OutputT]):
+@@ -439,17 +437,32 @@ class Agent(Generic[InputT, OutputT]):
          self.close()
  
  
@@ -76,7 +74,7 @@ index 0b895d8..d153c70 100644
 +    spans = _iter_json_objects(text)
 +    return spans[0] if spans else None
 diff --git a/tests/api/test_agent.py b/tests/api/test_agent.py
-index cd175d5..7ef3266 100644
+index cd175d5..6412243 100644
 --- a/tests/api/test_agent.py
 +++ b/tests/api/test_agent.py
 @@ -612,3 +612,13 @@ def test_extract_json_object_handles_nested_braces() -> None:
@@ -92,4 +90,4 @@ index cd175d5..7ef3266 100644
 +    )
 +    result = Agent(output_type=_ReplyModel, runtime=_FakeRuntime(reply)).run("evaluate")
 +    assert result.output.sentiment == "positive"
-+    assert result.output.summary == 'all clean'
++    assert result.output.summary == "all clean"

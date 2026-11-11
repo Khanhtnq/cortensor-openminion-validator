@@ -67,10 +67,10 @@ index 5f4b7e3..7a57404 100644
 -    return base_url.strip().lower().endswith("/completions")
 +    return base_url.strip().rstrip("/").lower().endswith("/completions")
 diff --git a/tests/test_health_doctor_probe_parity.py b/tests/test_health_doctor_probe_parity.py
-index e75af90..719dfd5 100644
+index e75af90..d669bf9 100644
 --- a/tests/test_health_doctor_probe_parity.py
 +++ b/tests/test_health_doctor_probe_parity.py
-@@ -145,3 +145,55 @@ class HealthDoctorProbeParityTests(unittest.TestCase):
+@@ -145,3 +145,57 @@ class HealthDoctorProbeParityTests(unittest.TestCase):
  
  def _check_by_id(payload: dict) -> dict:
      return {check["id"]: check for check in payload["checks"]}
@@ -123,6 +123,8 @@ index e75af90..719dfd5 100644
 +                    tool_call_strategy="hybrid",
 +                    base_url="https://api.cortensor.app/v1",
 +                )
-+            self.assertIs(post_mock.call_args.kwargs.get("http_client"), provider._http_client)
++            self.assertIs(
++                post_mock.call_args.kwargs.get("http_client"), provider._http_client
++            )
 +        finally:
 +            provider.close()
