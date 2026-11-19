@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortensor Sentinel — OpenMinion Multi-Agent Triage & PoI/PoUW Validator</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --surface: #0f172a;
+      --surface-2: #162033;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --violet: #a78bfa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: radial-gradient(circle at top right, #0f1f3d 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 28px 20px 64px; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start;
+      gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 24px; margin-bottom: 28px;
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .badge {
+      font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--accent);
+    }
+    .badge.ok { color: var(--emerald); border-color: rgba(16,185,129,0.35); }
+    .badge.warn { color: var(--amber); border-color: rgba(245,158,11,0.35); }
+    .badge.danger { color: var(--rose); border-color: rgba(244,63,94,0.35); }
+    h1 { font-size: 28px; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .subtitle { color: var(--muted); max-width: 760px; font-size: 14.5px; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .btn:hover { border-color: var(--accent); text-decoration: none; transform: translateY(-1px); }
+    .btn.primary { background: linear-gradient(135deg, #0284c7, #2563eb); border-color: transparent; color: #fff; }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px; margin-bottom: 28px;
+    }
+    .kpi {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px 18px;
+    }
+    .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .kpi-val { font-size: 26px; font-weight: 700; margin-top: 4px; }
+    .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .tab-btn {
+      padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .tab-btn.active { background: var(--surface-2); color: var(--accent); border-color: var(--accent); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px; margin-bottom: 18px;
+    }
+    .card h2 { font-size: 17px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+    }
+    pre {
+      background: #04070e; border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px; overflow-x: auto; color: #cbd5e1;
+    }
+    .miner-row {
+      display: grid; grid-template-columns: 1.4fr 0.8fr 0.8fr 0.8fr 0.9fr;
+      gap: 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .miner-row.head { color: var(--muted); font-size: 11.5px; text-transform: uppercase; font-weight: 600; }
+    select, input[type="range"] {
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 8px; font-size: 12.5px;
+    }
+    .pill {
+      display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+    }
+    .pill.block { background: rgba(244,63,94,0.16); color: var(--rose); }
+    .pill.approve { background: rgba(16,185,129,0.16); color: var(--emerald); }
+    .pill.outlier { background: rgba(245,158,11,0.16); color: var(--amber); }
+    footer {
+      margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="badge-row">
+          <span class="badge">Cortensor Hackathon #5</span>
+          <span class="badge ok">DoraHacks BUIDL #51060</span>
+          <span class="badge">OpenMinion v0.1.20</span>
+          <span class="badge warn">6 Upstream PRs Submitted</span>
+        </div>
+        <h1>Cortensor Sentinel (<code>cortensor-sentinel</code>)</h1>
+        <p class="subtitle">
+          Evidence-led Multi-Agent PR, Smart-Contract &amp; <code>CODE_QUALITY.md</code> Triage Coordinator + Redundant Miner Proof-of-Inference (PoI) &amp; Proof-of-Useful-Work (PoUW) Quorum Validator.
+        </p>
+      </div>
+      <div class="btn-row">
+        <a class="btn primary" href="https://github.com/Khanhtnq/cortensor-openminion-validator" target="_blank" rel="noopener">GitHub Repository</a>
+        <a class="btn" href="https://dorahacks.io/build/51060" target="_blank" rel="noopener">DoraHacks BUIDL #51060</a>
+        <button class="btn" onclick="runLiveSimulation()">Re-run Quorum Evaluation</button>
+      </div>
+    </header>
+
+    <section class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">OpenMinion Building Blocks</div>
+        <div class="kpi-val" style="color: var(--accent);">9 / 9</div>
+        <div class="kpi-sub">APIRuntime, Handoff, subagent, MemoryBundle, Identity</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">PoI / PoUW BFT Quorum</div>
+        <div class="kpi-val" id="kpi-quorum" style="color: var(--emerald);">3 / 4 Agree</div>
+        <div class="kpi-sub" id="kpi-consensus">PoI Similarity: 0.6002 · PoUW Mean: 0.9187</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Live Release Verdict</div>
+        <div class="kpi-val" id="kpi-verdict" style="color: var(--rose);">BLOCK</div>
+        <div class="kpi-sub">Risk Score: 50/100 · 3 Blocking Findings</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Upstream OpenMinion PRs</div>
+        <div class="kpi-val" style="color: var(--violet);">6 Patches</div>
+        <div class="kpi-sub">#729, #730, #731, #732, #738, #739 (`base=dev`)</div>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab-btn active" onclick="switchTab('quorum', this)">PoI / PoUW Quorum Validator</button>
+      <button class="tab-btn" onclick="switchTab('audit', this)">Diff &amp; Solidity Audit Transcript</button>
+      <button class="tab-btn" onclick="switchTab('blocks', this)">9 OpenMinion Building Blocks</button>
+      <button class="tab-btn" onclick="switchTab('prs', this)">6 Upstream Patches &amp; Router Doctor</button>
+    </nav>
+
+    <section id="tab-quorum" class="panel active">
+      <div class="card">
+        <h2>
+          <span>Interactive Cortensor Redundant-Miner PoI / PoUW Quorum Simulator</span>
+          <span class="pill block" id="sim-badge">CONSENSUS: BLOCK (QUORUM 3/3)</span>
+        </h2>
+        <p style="font-size: 13.5px; color: var(--muted); margin-bottom: 14px;">
+          Adjust miner verdicts or inject Byzantine latency/schema faults to inspect how <code>validate_cortensor_poi_pouw_quorum</code> enforces <code>2f+1</code> agreement and filters outliers (seeded from <code>artifacts/live_ollama_demo_transcript.json</code>).
+        </p>
+        <div class="miner-row head">
+          <div>Miner ID &amp; Session</div>
+          <div>Verdict</div>
+          <div>Schema Valid</div>
+          <div>Latency (ms)</div>
+          <div>PoUW / Status</div>
+        </div>
+        <div id="miner-list"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h2>PoI &amp; PoUW Scoring Formulas</h2>
+          <pre>PoI Similarity: Token Jaccard + structural JSON key overlap across valid miners
+PoUW Score:     1.0 * schema_valid - latency_penalty(ms > 2000)
+BFT Quorum:     agreeing_miners >= floor(2 * n / 3) + 1  (3 of 4 miners)
+Outlier Rule:   decision != consensus_decision OR schema_valid == false</pre>
+        </div>
+        <div class="card">
+          <h2>Live Quorum Output JSON</h2>
+          <pre id="quorum-json"></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-audit" class="panel">
+      <div class="card">
+        <h2>
+          <span>Captured Live Transcript: <code>qwen2.5:7b-instruct</code> Multi-Agent Audit</span>
+          <span class="pill block">decision: block (risk_score: 50)</span>
+        </h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Rule ID</th>
+              <th>Severity</th>
+              <th>File &amp; Line</th>
+              <th>Summary &amp; Remediation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>SOL-TX-ORIGIN</code></td>
+              <td><span class="pill block">critical</span></td>
+              <td><code>contracts/CortensorEscrowGate.sol:6</code></td>
+              <td>Authorization check using <code>tx.origin</code> enables phishing relay attacks. Use <code>msg.sender</code> with explicit role checks.</td>
+            </tr>
+            <tr>
+              <td><code>SOL-UNCHECKED-CALL</code></td>
+              <td><span class="pill block">high</span></td>
+              <td><code>contracts/CortensorEscrowGate.sol:7</code></td>
+              <td>Low-level <code>.call{...}(...)</code> ignores boolean return value. Capture <code>(bool ok, )</code> and revert when <code>!ok</code>.</td>
+            </tr>
+            <tr>
+              <td><code>CQ-BLANKET-EXCEPT</code></td>
+              <td><span class="pill block">high</span></td>
+              <td><code>src/router/utils.py:4</code></td>
+              <td>Bare <code>except:</code> clause hides unexpected failures (<code>CODE_QUALITY.md §1</code>). Catch narrow expected exceptions.</td>
+            </tr>
+            <tr>
+              <td><code>CQ-JUNK-DRAWER</code></td>
+              <td><span class="pill outlier">medium</span></td>
+              <td><code>src/router/utils.py:1</code></td>
+              <td>Generic junk-drawer module name <code>utils.py</code> violates <code>CODE_QUALITY.md §4</code>. Move helpers into domain package.</td>
+            </tr>
+            <tr>
+              <td><code>CQ-TOP-EXPLAINER</code></td>
+              <td><span class="pill approve">low</span></td>
+              <td><code>src/router/utils.py:1</code></td>
+              <td>Missing top-of-file module docstring (<code>CODE_QUALITY.md §2</code>). Add one-line factual module docstring.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-blocks" class="panel">
+      <div class="card">
+        <h2>All 9 OpenMinion Building Blocks Exercised in One Workflow</h2>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Building Block</th><th>SDK Surface</th><th>Verified Evidence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>Shared Application Runtime</td><td><code>APIRuntime.from_config_path(..., home_root, data_root)</code></td><td>Single-process SQLite + identity bundle</td></tr>
+            <tr><td>2</td><td>Typed Declarative Agent</td><td><code>Agent(..., output_type=ReleaseReadinessVerdict)</code></td><td>Structured Pydantic release verdict</td></tr>
+            <tr><td>3</td><td>Custom <code>@tool</code> Scopes</td><td><code>@tool(min_scope="READ_ONLY" | "WRITE_SAFE", dangerous=True)</code></td><td>Diff audit, skip/AST budget, tag stager</td></tr>
+            <tr><td>4</td><td>Bounded <code>subagent</code></td><td><code>subagent(..., timeout_seconds, DelegatedMemoryReadRequest)</code></td><td>Scoped diff inspection + memory read</td></tr>
+            <tr><td>5</td><td>Peer <code>Handoff</code> + Approval</td><td><code>Handoff(target=..., name="transfer_to_security_auditor")</code></td><td>Operator <code>approval_callback</code> gate</td></tr>
+            <tr><td>6</td><td>Session &amp; Thread Continuity</td><td><code>session_id</code> + <code>thread_id</code> vs isolated session</td><td>Verified multi-turn recall isolation</td></tr>
+            <tr><td>7</td><td>Portable <code>MemoryBundle</code></td><td><code>export_bundle -> save -> load -> import(trust_mode="candidate")</code></td><td>Portable audit memory transfer</td></tr>
+            <tr><td>8</td><td>Identity &amp; Skill Bundle</td><td><code>load_identity_bundle("cortensor-sentinel")</code></td><td><code>AGENT.md</code>, <code>SOUL.md</code>, <code>SKILL.md</code></td></tr>
+            <tr><td>9</td><td>Runtime &amp; Cortensor Probes</td><td><code>runtime_posture()</code>, <code>doctor-cortensor</code></td><td>Detects <code>CORTENSOR_*</code> env drift</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-prs" class="panel">
+      <div class="grid-2">
+        <div class="card">
+          <h2>6 Upstream OpenMinion PRs (<code>openminion/openminion</code>)</h2>
+          <table>
+            <thead><tr><th>PR</th><th>Patch Summary</th></tr></thead>
+            <tbody>
+              <tr><td><a href="https://github.com/openminion/openminion/pull/729" target="_blank" rel="noopener">#729</a></td><td><code>fix(api): serialize BaseModel outputs in Handoff delegate tools</code></td></tr>
+              <tr><td><a href="https://github.com/openminion/openminion/pull/730" target="_blank" rel="noopener">#730</a></td><td><code>fix(tool): serialize BaseModel payloads in _tool_result_from_payload</code></td></tr>
+              <tr><td><a href="https://github.com/openminion/openminion/pull/731" target="_blank" rel="noopener">#731</a></td><td><code>fix(tool): preserve explicit None fields in validated tool arguments</code></td></tr>
+              <tr><td><a href="https://github.com/openminion/openminion/pull/732" target="_blank" rel="noopener">#732</a></td><td><code>fix(api): inherit parent agent_id and default model in subagent</code></td></tr>
+              <tr><td><a href="https://github.com/openminion/openminion/pull/738" target="_blank" rel="noopener">#738</a></td><td><code>fix(api): scan all balanced JSON object spans in Agent._coerce_output</code></td></tr>
+              <tr><td><a href="https://github.com/openminion/openminion/pull/739" target="_blank" rel="noopener">#739</a></td><td><code>fix(cortensor): honor CORTENSOR_* env in session probe and pool chat HTTP</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h2>Zero-Code Cortensor Router / Portal Switch</h2>
+          <pre># Cortensor Portal (openai_chat)
+export CORTENSOR_API_MODE=openai_chat
+export CORTENSOR_API_URL=https://api.cortensor.app/v1
+sentinel doctor-cortensor --probe-network
+sentinel demo --live --provider cortensor --model gpt-oss-20b
+
+# Cortensor Router Node (/api/v2/completions)
+export CORTENSOR_API_MODE=cortensor_completion
+export CORTENSOR_API_URL=http://127.0.0.1:8080/api/v2/completions
+export CORTENSOR_SESSION_ID=42
+sentinel validate-poi</pre>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Cortensor Sentinel · Built by <a href="https://github.com/Khanhtnq" target="_blank" rel="noopener">Khanhtnq</a> for Cortensor Hackathon #5</span>
+      <span>MIT License · <a href="https://github.com/Khanhtnq/cortensor-openminion-validator" target="_blank" rel="noopener">cortensor-openminion-validator</a></span>
+    </footer>
+  </div>
+
+  <script>
+    const miners = [
+      { id: "cortensor-miner-01", session: 101, decision: "block", valid: true, latency: 580 },
+      { id: "cortensor-miner-02", session: 102, decision: "block", valid: true, latency: 640 },
+      { id: "cortensor-miner-03", session: 103, decision: "block", valid: true, latency: 710 },
+      { id: "cortensor-miner-04-byzantine", session: 104, decision: "approve", valid: true, latency: 1450 }
+    ];
+
+    function switchTab(name, btn) {
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("tab-" + name).classList.add("active");
+      btn.classList.add("active");
+    }
+
+    function runLiveSimulation() {
+      const counts = { block: 0, approve: 0 };
+      miners.forEach(m => { if (m.valid) counts[m.decision] = (counts[m.decision] || 0) + 1; });
+      const consensus = counts.block >= counts.approve ? "block" : "approve";
+      const agreeing = counts[consensus] || 0;
+      const required = Math.floor((2 * miners.length) / 3) + 1;
+      const quorumReached = agreeing >= required;
+
+      const listEl = document.getElementById("miner-list");
+      listEl.innerHTML = "";
+      let totalPouw = 0;
+      const outliers = [];
+
+      miners.forEach((m, idx) => {
+        const penalty = m.latency > 2000 ? Math.min(0.4, (m.latency - 2000) / 5000) : 0;
+        const pouw = m.valid ? Math.max(0, +(1.0 - penalty).toFixed(4)) : 0;
+        totalPouw += pouw;
+        const isOutlier = !m.valid || m.decision !== consensus;
+        if (isOutlier) outliers.push(m.id);
+
+        const row = document.createElement("div");
+        row.className = "miner-row";
+        row.innerHTML = `
+          <div><strong>${m.id}</strong> <span style="color:var(--muted)">(#${m.session})</span></div>
+          <div>
+            <select onchange="miners[${idx}].decision=this.value;runLiveSimulation()">
+              <option value="block" ${m.decision === "block" ? "selected" : ""}>block</option>
+              <option value="approve" ${m.decision === "approve" ? "selected" : ""}>approve</option>
+            </select>
+          </div>
+          <div>
+            <select onchange="miners[${idx}].valid=(this.value==='true');runLiveSimulation()">
+              <option value="true" ${m.valid ? "selected" : ""}>valid</option>
+              <option value="false" ${!m.valid ? "selected" : ""}>corrupt</option>
+            </select>
+          </div>
+          <div><input type="range" min="250" max="3500" step="50" value="${m.latency}" oninput="miners[${idx}].latency=+this.value;runLiveSimulation()" style="width:78px;vertical-align:middle"/> ${m.latency}</div>
+          <div><span class="pill ${isOutlier ? 'outlier' : 'approve'}">${pouw.toFixed(2)} ${isOutlier ? 'OUTLIER' : 'IN-QUORUM'}</span></div>
+        `;
+        listEl.appendChild(row);
+      });
+
+      const meanPouw = +(totalPouw / miners.length).toFixed(4);
+      const poiScore = +(agreeing / miners.length * 0.8).toFixed(4);
+      document.getElementById("kpi-quorum").textContent = `${agreeing} / ${miners.length} Agree`;
+      document.getElementById("kpi-consensus").textContent = `PoI Similarity: ${poiScore} · PoUW Mean: ${meanPouw}`;
+      document.getElementById("kpi-verdict").textContent = consensus.toUpperCase();
+      document.getElementById("kpi-verdict").style.color = consensus === "block" ? "var(--rose)" : "var(--emerald)";
+      const badge = document.getElementById("sim-badge");
+      badge.textContent = `CONSENSUS: ${consensus.toUpperCase()} (${quorumReached ? 'QUORUM REACHED' : 'NO QUORUM'} ${agreeing}/${required})`;
+      badge.className = "pill " + (quorumReached ? (consensus === "block" ? "block" : "approve") : "outlier");
+
+      document.getElementById("quorum-json").textContent = JSON.stringify({
+        quorum_reached: quorumReached,
+        total_miners: miners.length,
+        agreeing_miners: agreeing,
+        required_quorum: required,
+        poi_consensus_score: poiScore,
+        pouw_mean_quality: meanPouw,
+        consensus_decision: consensus,
+        outlier_miner_ids: outliers
+      }, null, 2);
+    }
+
+    runLiveSimulation();
+  </script>
+</body>
+</html>
