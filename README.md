@@ -2,7 +2,31 @@
 
 **Multi-Agent PR, Smart-Contract & `CODE_QUALITY.md` Triage Coordinator + Redundant Miner PoI/PoUW Quorum Validator for Cortensor & OpenMinion**
 
-Built on [`openminion`](https://github.com/openminion/openminion) (`v0.1.20` / `dev @ 2821799`) for **Cortensor Hackathon #5**.
+Built on [`openminion`](https://github.com/openminion/openminion) (`v0.1.20` / `dev @ 2821799`) for **Cortensor Hackathon #5** ([DoraHacks BUIDL #51060](https://dorahacks.io/build/51060)).
+
+- **Live Interactive PoI/PoUW Dashboard**: [https://khanhtnq.github.io/cortensor-openminion-validator/](https://khanhtnq.github.io/cortensor-openminion-validator/)
+- **DoraHacks BUIDL #51060**: [https://dorahacks.io/build/51060](https://dorahacks.io/build/51060)
+- **Upstream OpenMinion PRs (`base=dev`)**: `#729`, `#730`, `#731`, `#732`, `#738`, `#739` ([`patches/`](patches/))
+
+---
+
+## `< 60s` Judge Verification & Benchmark Summary
+
+1. **Zero-Install Interactive PoI/PoUW Quorum Simulator**: Open **[https://khanhtnq.github.io/cortensor-openminion-validator/](https://khanhtnq.github.io/cortensor-openminion-validator/)** to inject Byzantine miner latency/schema faults, inspect live `qwen2.5:7b-instruct` triage transcripts, and review all 9 OpenMinion building blocks + 6 upstream PRs.
+2. **Local Verification (`~5s`)**:
+```bash
+git clone https://github.com/Khanhtnq/cortensor-openminion-validator.git && cd cortensor-openminion-validator
+pip install -e ".[dev]"
+ruff check . && pytest -v
+sentinel validate-poi
+```
+
+| Verification Pillar | Observed Result | Scope |
+|:---|:---|:---|
+| **OpenMinion Building Blocks** | **`9 / 9` Exercised** | Shared `APIRuntime`, `Agent`, `@tool`, `subagent`, `Handoff`, `session_id`/`thread_id`, `MemoryBundle`, Identity, Posture |
+| **Sentinel Tools & Workflow Tests** | **`12 / 12 PASSED`** (`22` total incl. SDK reproducers) | `ruff check .` **`0`** errors; AST complexity `<= 12` |
+| **Cortensor PoI / PoUW BFT Quorum** | **`3 / 4` BFT (`2f+1`) consensus** | Token Jaccard + JSON key PoI similarity + schema/latency SLA outlier filtering |
+| **Upstream OpenMinion PRs** | **`6` live PRs (`#729`–`#732`, `#738`–`#739`)** | Stacked cleanly on `openminion` `dev`, verified against `110/110` upstream tests |
 
 ---
 
